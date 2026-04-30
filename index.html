@@ -48,7 +48,7 @@ body{
   grid-area:lp;
   background:var(--bg2);border-right:1px solid var(--bd);
   display:flex;flex-direction:column;align-items:center;
-  padding:8px 0;gap:3px;overflow-y:auto;overflow-x:hidden;
+  padding:8px 0;gap:3px;overflow-y:auto;overflow-x:visible;
 }
 .tb{width:36px;height:36px;border-radius:6px;border:1px solid transparent;background:transparent;color:var(--tx2);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .12s;position:relative;flex-shrink:0}
 .tb:hover{background:var(--bg3);color:var(--tx)}
@@ -58,7 +58,7 @@ body{
 .tb.act-d{background:rgba(0,200,255,.08);color:var(--ac);border-color:rgba(0,200,255,.4)}
 .tsep{width:28px;height:1px;background:var(--bd2);margin:2px 0;flex-shrink:0}
 .tlbl{font-size:7px;color:var(--tx3);letter-spacing:.5px;text-transform:uppercase;flex-shrink:0}
-.ttp{position:absolute;left:44px;top:50%;transform:translateY(-50%);background:var(--bg4);border:1px solid var(--bd);border-radius:4px;padding:3px 8px;font-size:10px;color:var(--tx);white-space:nowrap;pointer-events:none;display:none;z-index:1000}
+.ttp{position:fixed;left:60px;background:var(--bg4);border:1px solid var(--bd);border-radius:4px;padding:4px 10px;font-size:11px;color:var(--tx);white-space:nowrap;pointer-events:none;display:none;z-index:2000;box-shadow:0 2px 8px rgba(0,0,0,.4)}
 .tb:hover .ttp{display:block}
 
 /* CANVAS AREA */
@@ -1612,6 +1612,7 @@ function cfgHTML(){
   <div class="rpr"><span class="rpl">Cajas rect.</span><span class="rpv">${boxes.filter(b=>b.type==='rct').length}</span></div>
   <div class="rpr"><span class="rpl">Tableros</span><span class="rpv">${boxes.filter(b=>b.type==='tab').length}</span></div>
   <div class="rpr"><span class="rpl">Corrugados</span><span class="rpv">${pipes.length}  (${tC} m)</span></div>
+  <div class="rpr"><span class="rpl">Conectores 3/4"</span><span class="rpv w">${pipes.reduce((a,p)=>(p.fromBoxId?a+1:a)+(p.toBoxId?1:0),0)} u</span></div>
   <div class="rpr"><span class="rpl">Símbolos AEA</span><span class="rpv">${elecSyms.length}</span></div>
   <div class="rpr"><span class="rpl">Conductores</span><span class="rpv">${elecWires.length}</span></div>
   </div>`;
@@ -1620,8 +1621,16 @@ function cfgHTML(){
 function matHTML(){
   const mat={'Caja octogonal (8×8cm)':0,'Caja rectangular (10×5.7cm)':0,'Tablero':0,'Corrugado 3/4"':0,'Conector 3/4"':0};
   boxes.forEach(b=>{if(b.type==='oct')mat['Caja octogonal (8×8cm)']++;else if(b.type==='rct')mat['Caja rectangular (10×5.7cm)']++;else mat['Tablero']++;});
-  let tc=0;pipes.forEach(p=>tc+=parseFloat(pipeLen(p)));
-  mat['Corrugado 3/4"']=tc.toFixed(2);mat['Conector 3/4"']=pipes.length*2;
+  // Conectores: 1 por cada extremo de corrugado anclado a una caja
+  let totalConectores=0;
+  let tc=0;
+  pipes.forEach(p=>{
+    tc+=parseFloat(pipeLen(p));
+    if(p.fromBoxId)totalConectores++;
+    if(p.toBoxId)totalConectores++;
+  });
+  mat['Corrugado 3/4"']=tc.toFixed(2);
+  mat['Conector 3/4"']=totalConectores;
   return`<div class="rps"><div class="rpt">Lista de materiales</div>
   ${Object.entries(mat).map(([k,v])=>`<div class="mat-row"><span class="mat-name">${k}</span><span class="mat-qty">${v}${k.includes('Corrugado')?' m':' u'}</span></div>`).join('')}
   </div><div class="rps" style="font-size:10px;color:var(--tx3);line-height:1.5">
@@ -2288,6 +2297,17 @@ function resizeCanvas(){
   cv.height=Math.max(1,Math.floor(r.height)-22);
   render();
 }
+
+// Posicionamiento dinámico de tooltips del panel izquierdo
+document.addEventListener('DOMContentLoaded',()=>{
+  document.getElementById('lp').addEventListener('mouseover',e=>{
+    const btn=e.target.closest('.tb');if(!btn)return;
+    const ttp=btn.querySelector('.ttp');if(!ttp)return;
+    const r=btn.getBoundingClientRect();
+    ttp.style.top=(r.top+r.height/2)+'px';
+    ttp.style.transform='translateY(-50%)';
+  });
+});
 
 window.addEventListener('load',()=>{
   resizeCanvas();
